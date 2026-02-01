@@ -1,4 +1,3 @@
-
 import numpy as np
 import os
 from force_feedback_mpc.core_mpc_utils.path_utils import load_yaml_file
@@ -6,9 +5,10 @@ from force_feedback_mpc.core_mpc_utils.misc_utils import moving_average
 import matplotlib.pyplot as plt
 
 import sys
-sys.path.insert(0, "/home/skleff/force_feedback_ws")
 
-DATA_PREFIX= '/home/skleff/Desktop/TRO_SQP_VIDEO/resubmission_exp_data/go2+arm/CONSTANT_F=80/'
+sys.path.insert(0, "/media/ducthan/376b23a1-5a02-4960-b3ca-24b2fcef8f891/10_IMPEDANCE_CONTROL")
+
+DATA_PREFIX = '/home/skleff/Desktop/TRO_SQP_VIDEO/resubmission_exp_data/go2+arm/CONSTANT_F=80/'
 
 # F=50 
 #   MAXIT=20 
@@ -70,37 +70,35 @@ DATA_PREFIX= '/home/skleff/Desktop/TRO_SQP_VIDEO/resubmission_exp_data/go2+arm/C
 # DATA_PATH_3  = DATA_PREFIX + 'TOL=1e-2/go2_soft_Fmax=80_maxit=1000_fweight=0.0005_tol=1e-2.npz'
 
 # NEW DATASET (almost convergence , constant 80N, removed ee friction cone, tol=1e-4
-DATA_PATH_1  = DATA_PREFIX + 'TOL=1e-4/go2_classical_INT=False_Fmin=80_Fmax=80_maxit=1000_fweight=0.0005.npz'
-DATA_PATH_2  = DATA_PREFIX + 'TOL=1e-4/go2_classical_INT=True_Fmin=80_Fmax=80_maxit=1000_fweight=0.0005.npz' 
-DATA_PATH_3  = DATA_PREFIX + 'TOL=1e-4/go2_soft_Fmax=80_maxit=1000_fweight=0.0005.npz'
-
+DATA_PATH_1 = DATA_PREFIX + 'TOL=1e-4/go2_classical_INT=False_Fmin=80_Fmax=80_maxit=1000_fweight=0.0005.npz'
+DATA_PATH_2 = DATA_PREFIX + 'TOL=1e-4/go2_classical_INT=True_Fmin=80_Fmax=80_maxit=1000_fweight=0.0005.npz'
+DATA_PATH_3 = DATA_PREFIX + 'TOL=1e-4/go2_soft_Fmax=80_maxit=1000_fweight=0.0005.npz'
 
 # Load data and extract signals
 print("Loading data from: ", DATA_PATH_1)
-data1                 = np.load(DATA_PATH_1, allow_pickle=True)
+data1 = np.load(DATA_PATH_1, allow_pickle=True)
 print("Loading data from: ", DATA_PATH_2)
-data2                 = np.load(DATA_PATH_2, allow_pickle=True)
+data2 = np.load(DATA_PATH_2, allow_pickle=True)
 print("Loading data from: ", DATA_PATH_3)
-data3                 = np.load(DATA_PATH_3, allow_pickle=True)
+data3 = np.load(DATA_PATH_3, allow_pickle=True)
 measured_forces_dict1 = data1['measured_forces'].item()
 measured_forces_dict2 = data2['measured_forces'].item()
 measured_forces_dict3 = data3['measured_forces'].item()
-desired_forces        = data1['desired_forces']
+desired_forces = data1['desired_forces']
 
 # Load config file 
-CONFIG_PATH  = '/home/skleff/force_feedback_ws/force_feedback_mpc/demos/go2arm/Go2MPC_demo_classical.yml'
+CONFIG_PATH = '/media/ducthan/376b23a1-5a02-4960-b3ca-24b2fcef8f891/10_IMPEDANCE_CONTROL/force_feedback_mpc/demos/go2arm/Go2MPC_demo_classical.yml'
 print("Loading config from: ", CONFIG_PATH)
-CONFIG  = load_yaml_file(CONFIG_PATH)
+CONFIG = load_yaml_file(CONFIG_PATH)
 DT_SIMU = CONFIG['DT_SIMU']
-N_SIMU  = CONFIG['N_SIMU']
-MU      = CONFIG['MU']
-MPC_FREQ= CONFIG['MPC_FREQ']
-FMIN          = CONFIG['FMIN']
-FMAX          = CONFIG['FMAX']
-HORIZON       = CONFIG['HORIZON']
-DT_OCP        = CONFIG['DT_OCP']
-N_MPC_STEPS = int(N_SIMU*DT_SIMU*MPC_FREQ)
-
+N_SIMU = CONFIG['N_SIMU']
+MU = CONFIG['MU']
+MPC_FREQ = CONFIG['MPC_FREQ']
+FMIN = CONFIG['FMIN']
+FMAX = CONFIG['FMAX']
+HORIZON = CONFIG['HORIZON']
+DT_OCP = CONFIG['DT_OCP']
+N_MPC_STEPS = int(N_SIMU * DT_SIMU * MPC_FREQ)
 
 # Compute performance statistics
 err_f_norm1 = np.linalg.norm(measured_forces_dict1['Link6'] - desired_forces, axis=1)
@@ -108,28 +106,28 @@ err_f_norm2 = np.linalg.norm(measured_forces_dict2['Link6'] - desired_forces, ax
 err_f_norm3 = np.linalg.norm(measured_forces_dict3['Link6'] - desired_forces, axis=1)
 
 print("Classical MPC")
-print("  RMSE Fx-Fxdes = ", np.sum((measured_forces_dict1['Link6'][:,0] - desired_forces[:,0])**2, axis=0)/N_SIMU)
-print("  RMSE Fy-Fydes = ", np.sum((measured_forces_dict1['Link6'][:,1] - desired_forces[:,1])**2, axis=0)/N_SIMU)
-print("  RMSE Fz-Fzdes = ", np.sum((measured_forces_dict1['Link6'][:,2] - desired_forces[:,2])**2, axis=0)/N_SIMU)
-print("  RMSE ||F-Fdes|| = ", np.sum(err_f_norm1**2)/N_SIMU)
+print("  RMSE Fx-Fxdes = ", np.sum((measured_forces_dict1['Link6'][:, 0] - desired_forces[:, 0]) ** 2, axis=0) / N_SIMU)
+print("  RMSE Fy-Fydes = ", np.sum((measured_forces_dict1['Link6'][:, 1] - desired_forces[:, 1]) ** 2, axis=0) / N_SIMU)
+print("  RMSE Fz-Fzdes = ", np.sum((measured_forces_dict1['Link6'][:, 2] - desired_forces[:, 2]) ** 2, axis=0) / N_SIMU)
+print("  RMSE ||F-Fdes|| = ", np.sum(err_f_norm1 ** 2) / N_SIMU)
 
 print("Classical MPC + Integral")
-print("  RMSE Fx-Fxdes = ", np.sum((measured_forces_dict2['Link6'][:,0] - desired_forces[:,0])**2, axis=0)/N_SIMU)
-print("  RMSE Fy-Fydes = ", np.sum((measured_forces_dict2['Link6'][:,1] - desired_forces[:,1])**2, axis=0)/N_SIMU)
-print("  RMSE Fz-Fzdes = ", np.sum((measured_forces_dict2['Link6'][:,2] - desired_forces[:,2])**2, axis=0)/N_SIMU)
-print("  RMSE ||F-Fdes|| = ", np.sum(err_f_norm2**2)/N_SIMU)
+print("  RMSE Fx-Fxdes = ", np.sum((measured_forces_dict2['Link6'][:, 0] - desired_forces[:, 0]) ** 2, axis=0) / N_SIMU)
+print("  RMSE Fy-Fydes = ", np.sum((measured_forces_dict2['Link6'][:, 1] - desired_forces[:, 1]) ** 2, axis=0) / N_SIMU)
+print("  RMSE Fz-Fzdes = ", np.sum((measured_forces_dict2['Link6'][:, 2] - desired_forces[:, 2]) ** 2, axis=0) / N_SIMU)
+print("  RMSE ||F-Fdes|| = ", np.sum(err_f_norm2 ** 2) / N_SIMU)
 
 print("Force-feedback MPC")
-print("  RMSE Fx-Fxdes = ", np.sum((measured_forces_dict3['Link6'][:,0] - desired_forces[:,0])**2, axis=0)/N_SIMU)
-print("  RMSE Fy-Fydes = ", np.sum((measured_forces_dict3['Link6'][:,1] - desired_forces[:,1])**2, axis=0)/N_SIMU)
-print("  RMSE Fz-Fzdes = ", np.sum((measured_forces_dict3['Link6'][:,2] - desired_forces[:,2])**2, axis=0)/N_SIMU)
-print("  RMSE ||F-Fdes|| = ", np.sum(err_f_norm3**2)/N_SIMU)
+print("  RMSE Fx-Fxdes = ", np.sum((measured_forces_dict3['Link6'][:, 0] - desired_forces[:, 0]) ** 2, axis=0) / N_SIMU)
+print("  RMSE Fy-Fydes = ", np.sum((measured_forces_dict3['Link6'][:, 1] - desired_forces[:, 1]) ** 2, axis=0) / N_SIMU)
+print("  RMSE Fz-Fzdes = ", np.sum((measured_forces_dict3['Link6'][:, 2] - desired_forces[:, 2]) ** 2, axis=0) / N_SIMU)
+print("  RMSE ||F-Fdes|| = ", np.sum(err_f_norm3 ** 2) / N_SIMU)
 
-time_span = np.linspace(0, (N_SIMU-1)*DT_SIMU, N_SIMU)
-time_span2 = np.linspace(0, (N_SIMU-1)*DT_SIMU, N_MPC_STEPS)
+time_span = np.linspace(0, (N_SIMU - 1) * DT_SIMU, N_SIMU)
+time_span2 = np.linspace(0, (N_SIMU - 1) * DT_SIMU, N_MPC_STEPS)
 
 LABELS = ['Classical MPC', 'Classical MPC + Integral', 'Force-Feedback MPC']
-linewidths = [6,6,6,6,6]
+linewidths = [6, 6, 6, 6, 6]
 COLORS = ['b', 'g', 'r']
 
 fig, axs = plt.subplots(1, 1, constrained_layout=True)
@@ -161,11 +159,15 @@ fig, axs = plt.subplots(1, 1, constrained_layout=True)
 
 # axs[0].set_ylim(0., 105)
 # Plot Fx
-axs.plot(time_span, np.abs(measured_forces_dict1['Link6'][:,0]), linewidth=linewidths[0], color=COLORS[0], linestyle='solid', alpha=0.8, label=LABELS[0])
-axs.plot(time_span, np.abs(measured_forces_dict2['Link6'][:,0]), linewidth=linewidths[1], color=COLORS[1], linestyle='solid', alpha=0.8, label=LABELS[1])
-axs.plot(time_span, np.abs(measured_forces_dict3['Link6'][:,0]), linewidth=linewidths[2], color=COLORS[2], linestyle='solid', alpha=0.8, label=LABELS[2])
-axs.plot(time_span, np.abs(desired_forces[:,0]), linewidth=6, color='k', linestyle='dotted', alpha=0.6, label="Desired force (Fx)")
-axs.set_ylim(-1., FMAX+10)
+axs.plot(time_span, np.abs(measured_forces_dict1['Link6'][:, 0]), linewidth=linewidths[0], color=COLORS[0],
+         linestyle='solid', alpha=0.8, label=LABELS[0])
+axs.plot(time_span, np.abs(measured_forces_dict2['Link6'][:, 0]), linewidth=linewidths[1], color=COLORS[1],
+         linestyle='solid', alpha=0.8, label=LABELS[1])
+axs.plot(time_span, np.abs(measured_forces_dict3['Link6'][:, 0]), linewidth=linewidths[2], color=COLORS[2],
+         linestyle='solid', alpha=0.8, label=LABELS[2])
+axs.plot(time_span, np.abs(desired_forces[:, 0]), linewidth=6, color='k', linestyle='dotted', alpha=0.6,
+         label="Desired force (Fx)")
+axs.set_ylim(-1., FMAX + 10)
 # # Cumulative RMSE of the force error norm
 # axs[2].plot(time_span, np.sqrt(np.cumsum(err_f_norm1)), linewidth=4, color=COLORS[0], marker='o', alpha=0.7, label=f"Force error norm {LABELS[0]}")
 # axs[2].plot(time_span, np.sqrt(np.cumsum(err_f_norm2)), linewidth=4, color=COLORS[1], marker='o', alpha=0.7, label=f"Force error norm {LABELS[1]}")
@@ -174,8 +176,8 @@ axs.set_ylim(-1., FMAX+10)
 # axs[2].plot(time_span, moving_average(err_f_norm1, window_size=5), linewidth=4, color=COLORS[0], marker='o', alpha=0.7, label=f"Force error norm {LABELS[0]}")
 # axs[2].plot(time_span, moving_average(err_f_norm2, window_size=5), linewidth=4, color=COLORS[1], marker='o', alpha=0.7, label=f"Force error norm {LABELS[1]}")
 # axs[2].plot(time_span, moving_average(err_f_norm3, window_size=5), linewidth=4, color=COLORS[2], marker='o', alpha=0.7, label=f"Force error norm {LABELS[2]}")
-axs.tick_params(axis = 'x', labelsize=22)
-axs.tick_params(axis = 'y', labelsize=22)
+axs.tick_params(axis='x', labelsize=22)
+axs.tick_params(axis='y', labelsize=22)
 axs.set_xlabel('Time (s)', fontsize=22)
 axs.set_ylabel('Force error norm', fontsize=22)
 axs.yaxis.set_major_locator(plt.MaxNLocator(4))
@@ -188,4 +190,3 @@ fig.legend(handles_f, labels_f, loc='upper right', prop={'size': 26})
 fig.align_ylabels()
 
 plt.show()
-

@@ -17,13 +17,20 @@ The goal of this script is to setup OCP (play with weights)
 '''
 
 import sys
+from pathlib import Path
+
 sys.path.append('.')
 
 from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+#force_feedback_mpc_path = Path('.').absolute().parent.parent.parent / 'release/lib/python3.10/site-packages'
+#sys.path.insert(0, str(force_feedback_mpc_path))
+
+from croco_mpc_utils.utils import CustomLogger, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT
+
 logger = CustomLogger(__name__, GLOBAL_LOG_LEVEL, GLOBAL_LOG_FORMAT).logger
 
+import numpy as np
 
-import numpy as np  
 np.set_printoptions(precision=4, linewidth=180)
 
 from force_feedback_mpc.core_mpc_utils import path_utils, misc_utils
@@ -31,90 +38,95 @@ from force_feedback_mpc.core_mpc_utils import path_utils, misc_utils
 from croco_mpc_utils import pinocchio_utils as pin_utils
 from force_feedback_mpc.soft_mpc.aug_ocp import OptimalControlProblemSoftContactAugmented
 from force_feedback_mpc.soft_mpc.aug_data import OCPDataHandlerSoftContactAugmented
-from force_feedback_mpc.soft_mpc.utils import SoftContactModel1D
+from force_feedback_mpc.soft_mpc.soft_models_1D import DAMSoftContactDynamics1D as DAMSoft1D
+from force_feedback_mpc.soft_mpc.soft_models_3D import DAMSoftContactDynamics3D as DAMSoft3D
 from croco_mpc_utils.math_utils import circle_point_WORLD
 
 import mim_solvers
-from mim_robots.robot_loader import load_pinocchio_wrapper
+from force_feedback_dgh.mim_robots.robot_loader import load_pinocchio_wrapper
 import os
 
 # def main(robot_name, PLOT, DISPLAY):
 
 
-# # # # # # # # # # # #
+#  # # # # # # # # # # #
 ### LOAD ROBOT MODEL ## 
 # # # # # # # # # # # # 
-# Read config file
+#  Read config file
 config_name = 'polishing_soft_obstacle'
-config = path_utils.load_yaml_file(os.path.dirname(os.path.realpath(__file__))+'/'+config_name+'.yml')
+config = path_utils.load_yaml_file(os.path.dirname(os.path.realpath(__file__)) + '/' + config_name + '.yml')
 q0 = np.asarray(config['q0'])
 v0 = np.asarray(config['dq0'])
-x0 = np.concatenate([q0, v0]) 
-# Get pin wrapper
+x0 = np.concatenate([q0, v0])
+#  Get pin wrapper
 robot = load_pinocchio_wrapper('iiwa_convex_ft_sensor_shell', locked_joints=['A7'])
-# Get initial frame placement + dimensions of joint space
+#  Get initial frame placement + dimensions of joint space
 frame_name = config['frame_of_interest']
 id_endeff = robot.model.getFrameId(frame_name)
 nq, nv = robot.model.nq, robot.model.nv
-nx = nq+nv; nu = nq
-# Update robot model with initial state
+nx = nq + nv;
+nu = nq
+#  Update robot model with initial state
 robot.framesForwardKinematics(q0)
 robot.computeJointJacobians(q0)
 oMf = robot.data.oMf[id_endeff]
 # Contact model
 oPc = oMf.translation + np.asarray(config['oPc_offset'])
-if('1D' in config['contactType']):
-    softContactModel = SoftContactModel1D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['contactType'], config['pinRefFrame'])
+if ('1D' in config['contactType']):
+    softContactModel = DAMSoft1D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff,
+                                 config['contactType'], config['pinRefFrame'])
 else:
-    softContactModel = SoftContactModel3D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff, config['pinRefFrame'])
-y0 = np.hstack([x0, softContactModel.computeForce_(robot.model, q0, v0)])  
+    softContactModel = DAMSoft3D(np.asarray(config['Kp']), np.asarray(config['Kv']), oPc, id_endeff,
+                                 config['pinRefFrame'])
+y0 = np.hstack([x0, softContactModel.computeForce_(robot.model, q0, v0)])
 logger.debug(str(y0))
 
-
 from force_feedback_mpc.core_mpc_utils import sim_utils as simulator_utils
+
 capsule_id = simulator_utils.setup_obstacle_collision_no_sim(robot, config)
 
-# # # # # # # # # 
+#  # # # # # # # #
 ### OCP SETUP ###
-# # # # # # # # # 
-# Warm start and reg
+#  # # # # # # # #
+#  Warm start and reg
 
-# Setup Croco OCP and create solver
+#  Setup Croco OCP and create solver
 softContactModel.print()
 ocp = OptimalControlProblemSoftContactAugmented(robot, config).initialize(y0, softContactModel)
-# Warmstart and solve
-xs_init = [y0 for i in range(config['N_h']+1)]
+#  Warmstart and solve
+xs_init = [y0 for i in range(config['N_h'] + 1)]
 fext0 = softContactModel.computeExternalWrench_(robot.model, y0[:nq], y0[:nv])
-us_init = [pin_utils.get_tau(y0[:nq], y0[:nv], np.zeros(nv), fext0, robot.model, np.zeros(nv)) for i in range(config['N_h'])] 
+us_init = [pin_utils.get_tau(y0[:nq], y0[:nv], np.zeros(nv), fext0, robot.model, np.zeros(nv)) for i in
+           range(config['N_h'])]
 
-# Set the force cost reference frame to LWA 
+#  Set the force cost reference frame to LWA
 models = list(ocp.runningModels) + [ocp.terminalModel]
 import pinocchio as pin
-for k,m in enumerate(models):
+
+for k, m in enumerate(models):
     m.differential.cost_ref = pin.LOCAL_WORLD_ALIGNED
 
 # Setup tracking problem with circle ref EE trajectory
-RADIUS = config['frameCircleTrajectoryRadius'] 
-OMEGA  = config['frameCircleTrajectoryVelocity']
-for k,m in enumerate(models):
+RADIUS = config['frameCircleTrajectoryRadius']
+OMEGA = config['frameCircleTrajectoryVelocity']
+for k, m in enumerate(models):
     # Ref
-    t = min(k*config['dt'], 2*np.pi/OMEGA)
-    p_ee_ref = circle_point_WORLD(t, oMf, 
-                                            radius=RADIUS,
-                                            omega=OMEGA,
-                                            LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
+    t = min(k * config['dt'], 2 * np.pi / OMEGA)
+    p_ee_ref = circle_point_WORLD(t, oMf,
+                                  radius=RADIUS,
+                                  omega=OMEGA,
+                                  LOCAL_PLANE=config['CIRCLE_LOCAL_PLANE'])
     # Cost translation
     m.differential.costs.costs['translation'].cost.residual.reference = p_ee_ref
     # Contact model 1D update z ref (WORLD frame)
     m.differential.oPc[:2] = p_ee_ref[:2]
 
-
 # Warm start state = IK of circle trajectory
 logger.info("Computing warm-start using Inverse Kinematics...")
-xs_init = [] 
+xs_init = []
 us_init = []
 q_ws = q0
-for k,m in enumerate(list(ocp.runningModels) + [ocp.terminalModel]):
+for k, m in enumerate(list(ocp.runningModels) + [ocp.terminalModel]):
     # Get ref placement
     p_ee_ref = m.differential.costs.costs['translation'].cost.residual.reference
     Mref = oMf.copy()
@@ -131,17 +143,16 @@ solver.solve(xs_init, us_init, maxiter=config['maxiter'], isFeasible=False)
 #  Plot
 ddp_handler = OCPDataHandlerSoftContactAugmented(solver.problem, softContactModel)
 ddp_data = ddp_handler.extract_data(solver.xs, solver.us, robot.model)
-_, _ = ddp_handler.plot_ocp_results(ddp_data, which_plots=config['WHICH_PLOTS'], 
-                                                    colors=['r'], 
-                                                    markers=['.'], 
-                                                    SHOW=True)
-
+_, _ = ddp_handler.plot_ocp_results(ddp_data, which_plots=config['WHICH_PLOTS'],
+                                    colors=['r'],
+                                    markers=['.'],
+                                    SHOW=True)
 
 # Display solution in Gepetto Viewer
 # if(DISPLAY):
-    # import crocoddyl
-    # display = crocoddyl.GepettoDisplay(robot, frameNames=[frame_name])
-    # display.displayFromSolver(solver, factor=0.1)
+# import crocoddyl
+# display = crocoddyl.GepettoDisplay(robot, frameNames=[frame_name])
+# display.displayFromSolver(solver, factor=0.1)
 
 
 # if __name__=='__main__':
